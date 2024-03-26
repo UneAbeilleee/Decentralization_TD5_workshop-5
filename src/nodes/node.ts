@@ -29,6 +29,31 @@ export async function node(
   let proposals: Map<number, Value[]> = new Map();
   let votes: Map<number, Value[]> = new Map();
 
+  node.get("/start", async (req, res) => {
+    while (!nodesAreReady()) {
+      await delay(5);
+    }
+    if (!isFaulty) {
+      currentNodeState.k = 1;
+      currentNodeState.x = initialValue;
+      currentNodeState.decided = false;
+      for (let i = 0; i < N; i++) {
+        fetch(`http://localhost:${BASE_NODE_PORT + i}/message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ k: currentNodeState.k, x: currentNodeState.x, messageType: "propose" }),
+        });
+      }
+    } else {
+      currentNodeState.decided = null;
+      currentNodeState.x = null;
+      currentNodeState.k = null;
+    }
+    res.status(200).send("Consensus algorithm started.");
+  });
+
   node.post("/message", (req, res) => {
     let { k, x, messageType } = req.body;
     if (!isFaulty && !currentNodeState.killed) {
@@ -98,30 +123,7 @@ export async function node(
     res.status(200).send("Message received and processed.");
   });
 
-  node.get("/start", async (req, res) => {
-    while (!nodesAreReady()) {
-      await delay(5);
-    }
-    if (!isFaulty) {
-      currentNodeState.k = 1;
-      currentNodeState.x = initialValue;
-      currentNodeState.decided = false;
-      for (let i = 0; i < N; i++) {
-        fetch(`http://localhost:${BASE_NODE_PORT + i}/message`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ k: currentNodeState.k, x: currentNodeState.x, messageType: "propose" }),
-        });
-      }
-    } else {
-      currentNodeState.decided = null;
-      currentNodeState.x = null;
-      currentNodeState.k = null;
-    }
-    res.status(200).send("Consensus algorithm started.");
-  });
+
 
   node.get("/stop", async (req, res) => {
     currentNodeState.killed = true;
